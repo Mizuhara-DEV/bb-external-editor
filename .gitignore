@@ -139,5 +139,4 @@ build/
 
 .vscode/*
 !.vscode/launch.json
-
-.backup/*
+.prettierignore

@@ -26,15 +26,13 @@ export async function main(ns: NS) {
     }
 
     ns.clearLog();
-    ns.print("📊 Port Registry Monitor");
     ns.print("Owner             | Port | Last Ping | Task / Meta");
-    ns.print("------------------------------------------------");
 
     for (const entry of registry) {
       const age = Date.now() - entry.lastPing;
       const task = entry.meta?.task ?? "-";
       const target = entry.meta?.target ?? "-";
-      ns.print(`${entry.owner.padEnd(17)} | ${String(entry.port).padStart(4)} | ${age}ms | ${task} @ ${target}`);
+      ns.print(`${entry.owner.padEnd(17)} | ${String(entry.port).padStart(4)} | ${ns.tFormat(age)} | ${task} @ ${target}`);
     }
 
     await ns.sleep(1000);

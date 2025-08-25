@@ -1,10 +1,12 @@
 import Deployer from "./hack-deployer";
-import HackUtils from "./utils/Hack-Utils";
+import HackUtils from "./Utils/Hack-Utils";
 
 function hasFormulas(ns: NS): boolean {
-  return ns.fileExists("Formulas.exe", "home");
+  ns.fileExists("Formulas.exe", "home");
+  return false;
 }
 
+// Times
 function getTimes(ns: NS, target: string) {
   const server = ns.getServer(target);
   const player = ns.getPlayer();
@@ -24,28 +26,40 @@ function getTimes(ns: NS, target: string) {
   }
 }
 
+// Threads
 function getThreads(ns: NS, target: string, rateMoney: number, growMult: number = 1.05) {
   const server = ns.getServer(target);
   const player = ns.getPlayer();
 
   if (hasFormulas(ns)) {
     const hackPercent = ns.formulas.hacking.hackPercent(server, player);
-    const hackThreads = Math.max(1, Math.floor((server.moneyAvailable * rateMoney) / (server.moneyMax * hackPercent)));
-    const growThreads = Math.ceil(ns.formulas.hacking.growThreads(server, player, growMult));
+    // ép hackThreads >= 1 nếu rateMoney > 0
+    let hackThreads = Math.floor((server.moneyAvailable * rateMoney) / (server.moneyMax * hackPercent));
+    if (hackThreads < 1 && rateMoney > 0) hackThreads = 1;
+
+    // tránh growMult quá nhỏ
+    const safeMult = Math.max(1.0001, growMult);
+    let growThreads = Math.ceil(ns.formulas.hacking.growThreads(server, player, safeMult));
+    if (growThreads < 1 && safeMult > 1) growThreads = 1;
+
     return {hackThreads, growThreads};
   } else {
     const money = ns.getServerMoneyAvailable(target);
-    const hackThreads = Math.max(1, Math.floor(ns.hackAnalyzeThreads(target, money * rateMoney)));
-    const growThreads = Math.ceil(ns.growthAnalyze(target, growMult));
+    let hackThreads = Math.floor(ns.hackAnalyzeThreads(target, money * rateMoney));
+    if (hackThreads < 1 && rateMoney > 0) hackThreads = 1;
+
+    const growThreads = Math.max(1, Math.ceil(ns.growthAnalyze(target, growMult)));
     return {hackThreads, growThreads};
   }
 }
 
+// Weaken threads
 function getWeakenThreads(ns: NS, hackThreads: number, growThreads: number) {
   // mỗi hack thread tăng 0.002 sec, mỗi grow thread tăng 0.004 sec
   return Math.ceil((hackThreads * 0.002 + growThreads * 0.004) / ns.weakenAnalyze(1));
 }
 
+// NormalizeTarget
 export async function normalizeTarget(ns: NS, target: string, scripts: any, ram: any, hosts: string[], portData: number): Promise<boolean> {
   const server = ns.getServer(target);
 
@@ -54,16 +68,22 @@ export async function normalizeTarget(ns: NS, target: string, scripts: any, ram:
   const sec = server.hackDifficulty;
   const money = server.moneyAvailable;
 
+  // Weaken nếu sec quá cao
   if (sec > secThreshold) {
     const weakenNeeded = Math.ceil((sec - secThreshold) / ns.weakenAnalyze(1));
-    Deployer.runOnHosts(ns, scripts.weaken, weakenNeeded, ram.weaken, [target, 0], hosts);
-    HackUtils.updateLog(ns, portData, target, {weakenThreads: weakenNeeded}, true);
-    return true;
+    if (weakenNeeded > 0) {
+      Deployer.runOnHosts(ns, scripts.weaken, weakenNeeded, ram.weaken, [target, 0], hosts);
+      HackUtils.updateLog(ns, portData, target, {weakenThreads: weakenNeeded}, true);
+      return true;
+    }
   }
 
+  // Grow nếu money chưa đủ
   if (money < moneyThreshold) {
-    const multiplier = moneyThreshold / Math.max(money, 1);
-    const growNeeded = hasFormulas(ns) ? Math.ceil(ns.formulas.hacking.growThreads(server, ns.getPlayer(), multiplier)) : Math.ceil(ns.growthAnalyze(target, multiplier));
+    const multiplier = Math.max(1.0001, moneyThreshold / Math.max(money, 1));
+    let growNeeded = hasFormulas(ns) ? Math.ceil(ns.formulas.hacking.growThreads(server, ns.getPlayer(), multiplier)) : Math.ceil(ns.growthAnalyze(target, multiplier));
+
+    if (growNeeded < 1) growNeeded = 1;
 
     Deployer.runOnHosts(ns, scripts.grow, growNeeded, ram.grow, [target, 0], hosts);
     HackUtils.updateLog(ns, portData, target, {growThreads: growNeeded}, true);
@@ -73,6 +93,7 @@ export async function normalizeTarget(ns: NS, target: string, scripts: any, ram:
   return false;
 }
 
+// Batch
 export function planBatch(ns: NS, target: string, baseDelay: number, rateMoney: number) {
   const times = getTimes(ns, target);
   const {hackThreads, growThreads} = getThreads(ns, target, rateMoney, 1.05);

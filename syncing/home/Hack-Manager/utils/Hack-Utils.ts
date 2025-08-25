@@ -1,6 +1,6 @@
 export default class HackUtils {
   static updateLog(ns: NS, portData: number, target: string, batch: {hackThreads?: number; growThreads?: number; weakenThreads?: number}, action?: boolean): void {
-    const portHandle = ns;
+    const portHandle = ns.getPortHandle(portData);
 
     const data = {
       target,
@@ -10,31 +10,11 @@ export default class HackUtils {
       updated: Date.now(),
     };
 
-    if (!action) {
-      // Ghi log batch
-      data[target] = {
-        hack: batch.hackThreads || 0,
-        grow: batch.growThreads || 0,
-        weaken: batch.weakenThreads * 2 || 0,
-        updated: Date.now(),
-      };
-    }
-
-    if (action) {
-      // Ghi log normalize
-      data[target] = {
-        hack: batch.hackThreads || 0,
-        grow: batch.growThreads || 0,
-        weaken: batch.weakenThreads || 0,
-        updated: Date.now(),
-      };
-    }
-
     portHandle.write(JSON.stringify(data));
   }
 
   static runMonitor(ns: NS, mainName: string, port: number, meta: any): void {
-    const scriptName: string = "./monitor.ts";
+    const scriptName: string = "./hack-monitor.ts";
     ns.run(scriptName, 1, mainName, port, ...meta);
   }
 

@@ -1,4 +1,4 @@
-import HackUtils from "./utils/Hack-Utils";
+import HackUtils from "./Utils/Hack-Utils";
 
 export async function main(ns: NS) {
   ns.disableLog("ALL");
@@ -6,13 +6,11 @@ export async function main(ns: NS) {
 
   const MAINSCRIPTNAME: string = ns.args[0] as string;
   const port: number = ns.args[1] as number;
-  let agrs: any = ns.args[2];
-  if (!agrs) agrs = HackUtils.getScripAgrs(ns, MAINSCRIPTNAME, ns.getHostname());
-
   const EXPIRE = 120_000;
   const handle = ns.getPortHandle(port);
 
   // cache status theo target
+  const agrs = HackUtils.getScripAgrs(ns, MAINSCRIPTNAME, ns.getHostname());
   const status: Record<string, any> = {};
 
   while (true) {

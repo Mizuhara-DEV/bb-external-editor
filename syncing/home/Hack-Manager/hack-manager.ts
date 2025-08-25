@@ -1,4 +1,4 @@
-import HackUtils from "./utils/Hack-Utils";
+import HackUtils from "./Utils/Hack-Utils";
 import Deployer from "./hack-deployer";
 import {getHackableServers} from "./hack-scanner";
 import {planBatch, normalizeTarget} from "./hack-batcher";
@@ -16,7 +16,7 @@ const cooldownMap: Record<string, number> = {};
 
 export async function main(ns: NS) {
   ns.disableLog("ALL");
-  const scriptName = ns.getScriptName();
+  const scriptName = "Automatic-Hack";
 
   const flags = ns.flags([
     ["help", false],
@@ -30,12 +30,14 @@ export async function main(ns: NS) {
     return;
   }
 
+  const info = ns.getRunningScript();
+
   // 1) Xin port
   const {port, key} = await myPorts.requestPort(ns, scriptName);
   ns.tprint(`INFFO: 📦 Script ${scriptName} được cấp port ${port} KEY=[${key}]`);
   if (port !== -1 && key !== "") {
     // 2) Gọi ping auto (chạy script riêng ping.ts để gửi ping liên tục)
-    ns.exec(myPorts.PINGNAME, "home", 1, scriptName, port, key, ...ns.args);
+    ns.exec(myPorts.PINGNAME, "home", 1, scriptName, port, key, info.pid);
     myPorts.ping(ns, port, key, scriptName, Date.now());
   } else return ns.tprint("ERROR: ❌ Không còn port trống!");
 
@@ -43,7 +45,7 @@ export async function main(ns: NS) {
 
   ns.ui.setTailTitle(` 🖥️ Hack-Manager - Rate: ${ns.formatPercent(maxHackMoney)} `);
   ns.ui.openTail();
-  HackUtils.runMonitor(ns, scriptName, port, ns.args);
+  HackUtils.runMonitor(ns, ns.getScriptName(), port, ns.args);
 
   try {
     // 3) Code chính
@@ -69,6 +71,8 @@ export async function main(ns: NS) {
 
       await ns.sleep(500);
     }
+  } catch (e) {
+    ns.tprint(`ERROR cart: ${e}`);
   } finally {
     // 4) Thu hồi Port khi thoát
     myPorts.releasePort(ns, port, key, scriptName);
@@ -92,7 +96,8 @@ async function processTargets(ns: NS, targets: string[], maxHackMoney: number, b
     // 1. CHUẨN HÓA
     const normalized = await normalizeTarget(ns, target, scripts, ram, hosts, port);
     if (normalized) {
-      cooldownMap[target] = Date.now() + Math.max(ns.getWeakenTime(target), ns.getGrowTime(target)) + 200;
+      ns.print(`INFO: 🏢 CHUẨN HÓA Lại Server ${target}`);
+      cooldownMap[target] = Date.now() + Math.max(ns.getWeakenTime(target), ns.getGrowTime(target)) + 500;
       continue;
     }
 
@@ -109,7 +114,6 @@ async function processTargets(ns: NS, targets: string[], maxHackMoney: number, b
     cooldownMap[target] = Date.now() + batch.weakenTime + baseDelay * 5;
   }
 }
-
 // Xử lý 1 target
 async function processSingleTarget(ns: NS, target: string, maxHackMoney: number, baseDelay: number, port: number) {
   if (cooldownMap[target] && Date.now() < cooldownMap[target]) return;

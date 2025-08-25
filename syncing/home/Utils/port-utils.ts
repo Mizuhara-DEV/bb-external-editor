@@ -27,7 +27,7 @@ export default class PortsUtils {
   }
 
   // Gửi ping + meta (metadata: task, target, info,...)
-  ping(ns: NS, port: number, key: string, owner: string, meta: any = {}) {
+  ping(ns: NS, port: number, key: string, owner: string | number, meta: any = {}) {
     const control = ns.getPortHandle(this.CONTROL_PORT);
     control.write(JSON.stringify({type: "ping", port, key, owner, meta}));
   }
